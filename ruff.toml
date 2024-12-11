@@ -1,0 +1,30 @@
+# Docs: https://docs.astral.sh/ruff/settings/
+select = ["ALL"]
+fix = true
+target-version = "py313"
+line-length = 120
+ignore = [
+    "D101",   # Missing docstring in public class
+    "D104",   # Missing docstring in public package
+    "D100",   # Missing docstring in public module
+    "ANN201", # Missing return type annotation for public function `get_db`
+    "D103",   # Missing docstring in public function
+    "INP001", # File `X` is part of an implicit namespace package. Add an `__init__.py`.
+    "D102",   # Missing docstring in public method
+    "D107",   # Missing docstring in `__init__`
+    "D106",   # Missing docstring in public nested class
+    "ERA001", # Found commented-out code
+    "T201",   # `print` found
+
+    # Comments
+    "TD002", # Missing author in TODO; try: `# TODO(<author_name>): ...` or `# TODO @<author_name>: ...`
+    "TD003", # Missing issue link on the line following this TODO
+
+    # FastAPI only
+    "B008", # Do not perform function call `Depends` in argument defaults
+]
+[extend-per-file-ignores]
+"tests/**" = ["S101", "PLR2004"]
+
+[format]
+skip-magic-trailing-comma = false

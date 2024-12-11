@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "njpwerner.autodocstring",
+        "exodiusstudios.comment-anchors",
+        "tamasfe.even-better-toml",
+        "ms-python.mypy-type-checker",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff"
+    ]
+}

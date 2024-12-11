@@ -1,0 +1,23 @@
+[project]
+name = "fastapi-batteries"
+version = "0.1.1"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "JD Solanki", email = "jdsolanki0001@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+fastapi-batteries = "fastapi_batteries:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "fastapi>=0.115.6",
+    "httpx>=0.28.1",
+    "pytest-asyncio>=0.24.0",
+    "pytest>=8.3.4",
+]
