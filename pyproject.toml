@@ -6,6 +6,7 @@ readme = "README.md"
 authors = [{ name = "JD Solanki", email = "jdsolanki0001@gmail.com" }]
 requires-python = ">=3.13"
 dependencies = [
+    "email-validator>=2.2.0",
     "python-magic>=0.4.27",
 ]
 
@@ -23,4 +24,5 @@ dev-dependencies = [
     "pytest-asyncio>=0.24.0",
     "pytest>=8.3.4",
     "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20.0",
 ]

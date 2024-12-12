@@ -2,15 +2,15 @@ from datetime import datetime
 from typing import ClassVar, Literal
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column
 from sqlalchemy.sql import false
 
 
-class MixinId:
+class MixinId(MappedAsDataclass):
     id: Mapped[int] = mapped_column(primary_key=True, kw_only=True, default=None)
 
 
-class MixinCreatedAt:
+class MixinCreatedAt(MappedAsDataclass):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.timezone("UTC", func.now()),
@@ -19,7 +19,7 @@ class MixinCreatedAt:
     )
 
 
-class MixinUpdatedAt:
+class MixinUpdatedAt(MappedAsDataclass):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.timezone("UTC", func.now()),
@@ -29,7 +29,7 @@ class MixinUpdatedAt:
     )
 
 
-class MixinIsDeleted:
+class MixinIsDeleted(MappedAsDataclass):
     is_deleted: Mapped[bool] = mapped_column(default=False, server_default=false(), kw_only=True)
 
 
@@ -77,7 +77,7 @@ class MixinFactory:
         # Create new mixin class with proper type annotation
         return type(
             "_RenamedMixin",
-            (),
+            (MappedAsDataclass,),
             {
                 renamed_col: column_def,
                 "__annotations__": {renamed_col: type_annotation},
