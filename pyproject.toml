@@ -20,4 +20,5 @@ dev-dependencies = [
     "httpx>=0.28.1",
     "pytest-asyncio>=0.24.0",
     "pytest>=8.3.4",
+    "sqlalchemy[asyncio]>=2.0.36",
 ]

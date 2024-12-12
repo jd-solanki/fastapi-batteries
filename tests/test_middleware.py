@@ -4,6 +4,8 @@ from httpx import ASGITransport, AsyncClient
 
 from fastapi_batteries import RequestProcessTimeMiddleware
 
+# TODO: Write tests for QueryCountMiddleware
+
 
 @pytest.fixture
 def app() -> FastAPI:
