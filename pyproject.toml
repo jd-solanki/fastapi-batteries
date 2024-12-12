@@ -1,11 +1,13 @@
 [project]
 name = "fastapi-batteries"
-version = "0.1.1"
+version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "JD Solanki", email = "jdsolanki0001@gmail.com" }]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "python-magic>=0.4.27",
+]
 
 [project.scripts]
 fastapi-batteries = "fastapi_batteries:main"

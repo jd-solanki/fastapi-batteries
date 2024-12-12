@@ -2,21 +2,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from fastapi_batteries import RequestProcessTimeMiddleware
+from fastapi_batteries.fastapi.middlewares import RequestProcessTimeMiddleware
 
 # TODO: Write tests for QueryCountMiddleware
-
-
-@pytest.fixture
-def app() -> FastAPI:
-    """Create a FastAPI app with RequestProcessTimeMiddleware for testing."""
-    app = FastAPI()
-
-    @app.get("/health")
-    async def get_health():
-        return {"status": "ok"}
-
-    return app
 
 
 @pytest.mark.asyncio
