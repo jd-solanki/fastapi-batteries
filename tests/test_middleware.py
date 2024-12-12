@@ -18,8 +18,6 @@ async def test_process_time_header(app: FastAPI):
         # Verify response is successful
         assert response.status_code == 200
 
-        print(f"response.headers: {response.headers}")
-
         # Verify X-Process-Time header exists
         assert "x-process-time" in response.headers
         # Verify header format (should end with "ms")

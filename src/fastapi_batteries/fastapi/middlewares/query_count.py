@@ -42,7 +42,6 @@ class QueryCountMiddleware(BaseHTTPMiddleware):
 
         # Log the number of queries executed
         query_count = query_counter.get_count()
-        print(f"Number of queries executed: {query_count}")
 
         # Add the query count to the response headers
         response.headers["X-DB-Query-Count"] = str(query_count)
