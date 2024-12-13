@@ -1,0 +1,4 @@
+/* Set magnifier cursor for glightbox images */
+.glightbox img {
+    cursor: zoom-in
+}

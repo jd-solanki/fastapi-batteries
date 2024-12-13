@@ -1,5 +1,9 @@
 site_name: FastAPI Batteries
 site_url: https://jd-solanki.github.io/fastapi-batteries
+repo_url: https://github.com/jd-solanki/fastapi-batteries
+repo_name: jd-solanki/fastapi-batteries
+extra_css:
+  - stylesheets/extra.css
 theme:
   name: material
   features:
@@ -31,6 +35,7 @@ theme:
 
 plugins:
   - search
+  - glightbox
 markdown_extensions:
   - attr_list
   - pymdownx.highlight:
@@ -44,3 +49,5 @@ markdown_extensions:
       alternate_style: true
   - admonition
   - pymdownx.details
+  - toc:
+      permalink: true

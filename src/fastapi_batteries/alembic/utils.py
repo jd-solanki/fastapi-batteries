@@ -3,7 +3,7 @@ from importlib import import_module
 from pathlib import Path
 
 
-def import_models_for_alembic(src_dir: Path | str):
+def import_models(src_dir: Path | str):
     """Import all models from the given directory for Alembic migrations.
 
     You might also need to import & execute this utility function in other environments like celery
@@ -14,7 +14,7 @@ def import_models_for_alembic(src_dir: Path | str):
 
     Examples:
         >>> # most probably file: <project_root>/alembic/env.py
-        >>> import_models_for_alembic("<project_root>/src")
+        >>> import_models("<project_root>/src")
 
     """
     src_dir = Path(src_dir)

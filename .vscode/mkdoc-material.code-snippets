@@ -13,5 +13,14 @@
             "    ![fastapi_batteries__](../assets/images/examples${2})"
         ],
         "description": "Example-Preview Tab"
+    },
+    "Code Snippet": {
+        "prefix": "!code",
+        "body": [
+            "```py linenums=\"1\" hl_lines=\"1\"",
+            "",
+            "```"
+        ],
+        "description": "Code Snippet"
     }
 }

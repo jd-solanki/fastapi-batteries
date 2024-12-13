@@ -25,4 +25,5 @@ dev-dependencies = [
     "mkdocs-material>=9.5.48",
     "uvicorn>=0.32.1",
     "python-multipart>=0.0.19",
+    "mkdocs-glightbox>=0.4.0",
 ]
