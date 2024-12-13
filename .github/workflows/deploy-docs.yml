@@ -1,4 +1,4 @@
-name: ci
+name: Deploy Docs
 on:
   workflow_dispatch: # Enable manual triggering
   push:
