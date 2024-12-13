@@ -1,7 +1,7 @@
 import magic
 from fastapi import UploadFile, status
 
-from fastapi_batteries.exceptions.api_exception import APIException
+from fastapi_batteries.fastapi.exceptions.api_exception import APIException
 from fastapi_batteries.utils import mimetypes_utils
 from fastapi_batteries.utils import size as size_utils
 
@@ -20,8 +20,8 @@ class FileValidator:
 
     async def __call__(self, file: UploadFile) -> UploadFile:
         # Validate file size and content type
-        await self._validate_file_size(file)
         await self._validate_file_type(file)
+        await self._validate_file_size(file)
         return file
 
     async def _validate_file_size(self, file: UploadFile) -> None:

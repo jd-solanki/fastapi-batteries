@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import HTTPException
 from pydantic import BaseModel, RootModel
-from sqlalchemy import Select, select
+from sqlalchemy import Select, delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
@@ -165,14 +165,35 @@ class CRUD[
 
         return item_db
 
-    async def delete(self, db: AsyncSession, item_id: int, *, commit: bool = True) -> ModelType | None:
-        item_db = await self.get_or_404(db, item_id)
-        await db.delete(item_db)
+    async def delete(self, db: AsyncSession, item_id: int, *, commit: bool = True) -> int:
+        """Delete an item by ID. Returns the number of rows deleted.
+
+        Args:
+            db: SQLAlchemy AsyncSession
+            item_id: Item ID
+            commit: Whether to commit the transaction. Defaults to False.
+
+        Returns:
+            Number of rows deleted
+
+        Raises:
+            AttributeError: If model does not have `id` attribute
+
+        """
+        if not hasattr(self.model, "id"):
+            msg = f"Model {self.model.__name__} must have 'id' attribute"
+            raise AttributeError(msg)
+
+        statement = delete(self.model).where(
+            self.model.id == item_id,  # type: ignore We already checked if model has `id` attribute
+        )
+
+        result = await db.execute(statement)
 
         if commit:
             await db.commit()
 
-        return item_db
+        return result.rowcount
 
     async def count(self, db: AsyncSession, *, select_statement: Select[tuple[int]]) -> int:
         result = await db.scalars(select_statement)

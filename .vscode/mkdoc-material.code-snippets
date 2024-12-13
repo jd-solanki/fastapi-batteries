@@ -1,0 +1,17 @@
+{
+    "Example-Preview Tab": {
+        "prefix": "!ex",
+        "body": [
+            "=== \"Example\"",
+            "",
+            "    ```py linenums=\"1\" hl_lines=\"1\"",
+            "    --8<-- \"../../examples${1}\"",
+            "    ```",
+            "",
+            "=== \"Preview\"",
+            "",
+            "    ![fastapi_batteries__](../assets/images/examples${2})"
+        ],
+        "description": "Example-Preview Tab"
+    }
+}
