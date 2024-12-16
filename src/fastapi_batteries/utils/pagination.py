@@ -1,5 +1,5 @@
 # TODO: Move generic utils that are not related to fastapi batteries to a separate package "pytils-jd"
-def page_size_to_offset_limit(page: int, size: int):
+def page_size_to_offset_limit(*, page: int, size: int):
     """Convert page and size to offset and limit.
 
     This is useful to convert page and size to offset and limit for SQL queries.
@@ -12,9 +12,9 @@ def page_size_to_offset_limit(page: int, size: int):
         Tuple of offset and limit.
 
     Examples:
-        >>> page_size_to_offset_limit(1, 10)
+        >>> page_size_to_offset_limit(page=1, size=10)
         (0, 10)
-        >>> page_size_to_offset_limit(2, 10)
+        >>> page_size_to_offset_limit(page=2, size=10)
         (10, 10)
 
     Raises:

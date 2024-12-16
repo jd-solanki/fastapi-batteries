@@ -4,13 +4,14 @@ from typing import Any, Literal, overload
 
 from fastapi import status
 from pydantic import BaseModel, RootModel
-from sqlalchemy import ScalarResult, Select, delete, insert, select
+from sqlalchemy import ScalarResult, Select, delete, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
 from fastapi_batteries.fastapi.exceptions import APIException
 from fastapi_batteries.pydantic.schemas import PaginationOffsetLimit, PaginationPageSize
+from fastapi_batteries.utils.pagination import page_size_to_offset_limit
 
 
 class CRUD[
@@ -19,10 +20,20 @@ class CRUD[
     SchemaPatch: BaseModel,
     SchemaUpsert: BaseModel,
 ]:
+    """CRUD operations for SQLAlchemy models.
+
+    Args:
+        model: SQLAlchemy model
+        soft_delete_col_name: Column name that represents soft delete
+        resource_name: Resource name for error messages
+        logger: Logger instance to log messages
+
+    """
+
     def __init__(
         self,
-        *,
         model: type[ModelType],
+        *,
         soft_delete_col_name: str = "is_deleted",
         resource_name: str = "Resource",
         logger: Logger | None = None,
@@ -55,8 +66,6 @@ class CRUD[
         commit: bool = True,
         returning: Literal[False],
     ) -> None: ...
-
-    # ---
 
     @overload
     async def create(
@@ -131,6 +140,7 @@ class CRUD[
             await db.commit()
         return None
 
+    # TODO: Type hint Any
     async def get(
         self,
         db: AsyncSession,
@@ -139,7 +149,7 @@ class CRUD[
     ) -> ModelType | None:
         return await db.get(self.model, item_id, **kwargs)
 
-    # TODO: Remove Any
+    # TODO: Type hint Any
     async def get_or_404(
         self,
         db: AsyncSession,
@@ -151,35 +161,40 @@ class CRUD[
         if result := await db.get(self.model, item_id, **kwargs):
             return result
 
-        # TODO: Allow raising error with specific detail generic like `TypedDict` or `BaseModel`
         raise APIException(
             status=status.HTTP_404_NOT_FOUND,
             title=msg_404 or self.err_messages[404],
         )
 
-    # TODO: Allow to fetch records without pagination
+    # TODO: Add overload for pagination conditional return
     async def get_multi(
         self,
         db: AsyncSession,
         *,
         pagination: PaginationPageSize | PaginationOffsetLimit | None = None,
         select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
-    ) -> Sequence[ModelType]:
-        pagination = pagination or PaginationOffsetLimit(offset=0, limit=10)
-
+    ) -> Sequence[ModelType] | tuple[Sequence[ModelType], int]:
         _select_statement = select_statement(select(self.model))
+        paginated_statement: Select[tuple[ModelType]] | None = None
 
         # Pagination
-        # * Mypy sucks if we try to extract limit & offset from below if-else
-        if isinstance(pagination, PaginationOffsetLimit):
-            _select_statement = _select_statement.limit(pagination.limit).offset(pagination.offset)
-        else:
-            limit = pagination.size
-            offset = (pagination.page - 1) * limit
-            _select_statement = _select_statement.limit(limit).offset(offset)
+        if pagination:
+            if isinstance(pagination, PaginationPageSize):
+                offset, limit = page_size_to_offset_limit(page=pagination.page, size=pagination.size)
+            else:
+                offset, limit = pagination.offset, pagination.limit
 
-        result = await db.scalars(_select_statement)
-        return result.unique().all()
+            paginated_statement = _select_statement.limit(limit).offset(offset)
+
+        result = await db.scalars(
+            paginated_statement if paginated_statement is not None else _select_statement,
+        )
+        records = result.unique().all()
+
+        if pagination:
+            total = await self.count(db, select_statement=_select_statement)
+            return records, total
+        return records
 
     # TODO: Can we fetch TypedDict from SchemaPatch? Using `dict[str, Any]` is not good.
     async def patch(
@@ -247,8 +262,11 @@ class CRUD[
 
         return result.rowcount
 
-    async def count(self, db: AsyncSession, *, select_statement: Select[tuple[int]]) -> int:
-        result = await db.scalars(select_statement)
+    async def count(self, db: AsyncSession, *, select_statement: Select[tuple[ModelType]] | None = None) -> int:
+        count_select_from = select_statement.subquery() if select_statement is not None else self.model
+        count_statement = select(func.count()).select_from(count_select_from)
+
+        result = await db.scalars(count_statement)
         return result.first() or 0
 
     async def upsert(
