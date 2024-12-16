@@ -2,15 +2,16 @@ from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, status
 from pydantic import BaseModel, PositiveInt, RootModel
 from sqlalchemy import String, select
+from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 from fastapi_batteries.crud import CRUD
 from fastapi_batteries.fastapi.exceptions import get_api_exception_handler
-from fastapi_batteries.fastapi.exceptions.api_exception import APIException
+from fastapi_batteries.fastapi.exceptions.api_exception import APIException, get_api_exception_handler
 from fastapi_batteries.fastapi.middlewares import QueryCountMiddleware
 from fastapi_batteries.pydantic.schemas import Paginated, PaginationOffsetLimit
 from fastapi_batteries.sa.mixins import MixinId
@@ -129,6 +130,45 @@ async def get_users(
         "data": db_users,
         "meta": {"total": total},
     }
+
+
+@app.get("/users/count")
+async def get_users_count(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    select_statement = select(User)
+    if first_name:
+        select_statement = select_statement.where(User.first_name == first_name)
+    if first_name__contains:
+        select_statement = select_statement.where(User.first_name.contains(first_name__contains))
+
+    return await user_crud.count(db, select_statement=select_statement)
+
+
+@app.get("/users/one")
+async def get_one_user(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: PositiveInt | None = None,
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    select_statement = select(User)
+    if user_id:
+        select_statement = select_statement.where(User.id == user_id)
+    if first_name:
+        select_statement = select_statement.where(User.first_name == first_name)
+    if first_name__contains:
+        select_statement = select_statement.where(User.first_name.contains(first_name__contains))
+
+    try:
+        return await user_crud.get_one_or_none(db, select_statement=lambda _: select_statement)
+    except MultipleResultsFound as e:
+        raise APIException(
+            title="Multiple results found",
+            status=status.HTTP_400_BAD_REQUEST,
+        ) from e
 
 
 @app.get("/users/{user_id}")

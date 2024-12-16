@@ -1,4 +1,5 @@
 from collections.abc import Callable, Sequence
+from contextlib import suppress
 from logging import Logger
 from typing import Any, Literal, overload
 
@@ -6,6 +7,7 @@ from fastapi import status
 from pydantic import BaseModel, RootModel
 from sqlalchemy import ScalarResult, Select, delete, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
@@ -166,6 +168,7 @@ class CRUD[
             title=msg_404 or self.err_messages[404],
         )
 
+    # TODO: Instead of all columns, fetch specific columns
     # TODO: Add overload for pagination conditional return
     async def get_multi(
         self,
@@ -174,10 +177,11 @@ class CRUD[
         pagination: PaginationPageSize | PaginationOffsetLimit | None = None,
         select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
     ) -> Sequence[ModelType] | tuple[Sequence[ModelType], int]:
+        # --- Initialize statements
         _select_statement = select_statement(select(self.model))
         paginated_statement: Select[tuple[ModelType]] | None = None
 
-        # Pagination
+        # --- Pagination
         if pagination:
             if isinstance(pagination, PaginationPageSize):
                 offset, limit = page_size_to_offset_limit(page=pagination.page, size=pagination.size)
@@ -186,15 +190,46 @@ class CRUD[
 
             paginated_statement = _select_statement.limit(limit).offset(offset)
 
+        # --- Fetch records
         result = await db.scalars(
             paginated_statement if paginated_statement is not None else _select_statement,
         )
         records = result.unique().all()
 
+        # --- Return records
         if pagination:
             total = await self.count(db, select_statement=_select_statement)
             return records, total
         return records
+
+    async def get_one_or_none(
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+        suppress_multiple_result_exc: bool = False,
+    ):
+        """Get one item or None based on select statement.
+
+        Args:
+            db: SQLAlchemy AsyncSession
+            select_statement: Select statement to fetch the item
+            suppress_multiple_result_exc: Whether to suppress `MultipleResultsFound` exception
+
+        Returns:
+            Queried item or None
+
+        Raises:
+            MultipleResultsFound: If multiple results are found and `suppress_multiple_result_exc` is False
+
+        """
+        result = await db.scalars(select_statement(select(self.model)))
+
+        try:
+            return result.unique().one_or_none()
+        except MultipleResultsFound:
+            if not suppress_multiple_result_exc:
+                raise
 
     # TODO: Can we fetch TypedDict from SchemaPatch? Using `dict[str, Any]` is not good.
     async def patch(
@@ -262,6 +297,7 @@ class CRUD[
 
         return result.rowcount
 
+    # TODO: Use callable for select_statement like other methods
     async def count(self, db: AsyncSession, *, select_statement: Select[tuple[ModelType]] | None = None) -> int:
         count_select_from = select_statement.subquery() if select_statement is not None else self.model
         count_statement = select(func.count()).select_from(count_select_from)
