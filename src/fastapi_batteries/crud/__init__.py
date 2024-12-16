@@ -2,22 +2,19 @@ from collections.abc import Callable, Sequence
 from logging import Logger
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from pydantic import BaseModel, RootModel
 from sqlalchemy import Select, delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
+from sqlalchemy.orm import DeclarativeBase
 
+from fastapi_batteries.fastapi.exceptions import APIException
 from fastapi_batteries.pydantic.schemas import PaginationOffsetLimit, PaginationPageSize
 
 
-# Dummy Base class for adding types
-class Base(DeclarativeBase, MappedAsDataclass): ...
-
-
 class CRUD[
-    ModelType: Base,
+    ModelType: DeclarativeBase,
     SchemaCreate: BaseModel,
     SchemaPatch: BaseModel,
     SchemaUpsert: BaseModel,
@@ -105,8 +102,12 @@ class CRUD[
             return result
 
         # TODO: Allow raising error with specific detail generic like `TypedDict` or `BaseModel`
-        raise HTTPException(status_code=404, detail=msg_404 or self.err_messages[404])
+        raise APIException(
+            status=status.HTTP_404_NOT_FOUND,
+            title=msg_404 or self.err_messages[404],
+        )
 
+    # TODO: Allow to fetch records without pagination
     async def get_multi(
         self,
         db: AsyncSession,
@@ -130,6 +131,7 @@ class CRUD[
         result = await db.scalars(_select_statement)
         return result.unique().all()
 
+    # TODO: Can we fetch TypedDict from SchemaPatch? Using `dict[str, Any]` is not good.
     async def patch(
         self,
         db: AsyncSession,
