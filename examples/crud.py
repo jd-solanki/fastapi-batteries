@@ -1,9 +1,9 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel, PositiveInt, RootModel
 from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
@@ -78,6 +78,11 @@ user_crud = CRUD[User, UserCreate, UserPatch, BaseModel](model=User)
 @app.post("/users/")
 async def create_user(user: UserCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     return await user_crud.create(db, user)
+
+
+@app.post("/users/multi")
+async def create_users(users: RootModel[Sequence[UserCreate]], db: Annotated[AsyncSession, Depends(get_db)]):
+    return await user_crud.create(db, users)
 
 
 @app.get("/users/")

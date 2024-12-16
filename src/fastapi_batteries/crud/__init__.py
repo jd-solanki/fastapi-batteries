@@ -1,10 +1,10 @@
 from collections.abc import Callable, Sequence
 from logging import Logger
-from typing import Any
+from typing import Any, Literal, overload
 
-from fastapi import HTTPException, status
+from fastapi import status
 from pydantic import BaseModel, RootModel
-from sqlalchemy import Select, delete, select
+from sqlalchemy import ScalarResult, Select, delete, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
@@ -36,50 +36,100 @@ class CRUD[
         }
         self.logger = logger
 
-    # TODO: Add proper types for refresh_kwargs
+    @overload
     async def create(
         self,
         db: AsyncSession,
-        new_item: SchemaCreate,
+        new_data: SchemaCreate,
         *,
-        refresh_kwargs: dict[str, Any] | None = None,
         commit: bool = True,
-    ) -> ModelType:
-        # ! Don't use `jsonable_encoder`` because it can cause issue like converting datetime to string.
-        # Converting date to string will cause error when inserting to database.
-        item_db = self.model(**new_item.model_dump())
-        db.add(item_db)
+        returning: Literal[True] = True,
+    ) -> ModelType: ...
 
-        if commit:
-            await db.commit()
-            await db.refresh(item_db, **(refresh_kwargs or {}))
-        elif refresh_kwargs and self.logger:
-            self.logger.warning("refresh_kwargs is ignored because commit is False")
-
-        return item_db
-
-    # TODO: Check how many insert statements gets executed when inserting multiple items.
-    async def create_multi(
+    @overload
+    async def create(
         self,
         db: AsyncSession,
-        new_items: Sequence[SchemaCreate],
+        new_data: SchemaCreate,
         *,
-        refresh_kwargs: dict[str, Any] | None = None,
         commit: bool = True,
-    ) -> Sequence[ModelType]:
-        items_db = [self.model(**new_item.model_dump()) for new_item in new_items]
-        db.add_all(items_db)
+        returning: Literal[False],
+    ) -> None: ...
 
+    # ---
+
+    @overload
+    async def create(
+        self,
+        db: AsyncSession,
+        new_data: RootModel[Sequence[SchemaCreate]],
+        *,
+        commit: bool = True,
+        returning: Literal[True] = True,
+    ) -> Sequence[ModelType]: ...
+
+    @overload
+    async def create(
+        self,
+        db: AsyncSession,
+        new_data: RootModel[Sequence[SchemaCreate]],
+        *,
+        commit: bool = True,
+        returning: Literal[False],
+    ) -> None: ...
+
+    async def create(
+        self,
+        db: AsyncSession,
+        new_data: SchemaCreate | RootModel[Sequence[SchemaCreate]],
+        *,
+        commit: bool = True,
+        returning: bool = True,
+    ) -> Sequence[ModelType] | ModelType | None:
+        """Create single or multiple items using insert statement.
+
+        Args:
+            db: SQLAlchemy AsyncSession
+            new_data: New data to insert in the database
+            commit: Whether to commit the transaction
+            returning: Whether to return the inserted item(s) via `returning` clause
+
+        Returns:
+            Inserted item(s) if `returning` is True else None
+
+        """
+        # ! Don't use `jsonable_encoder`` because it can cause issue like converting datetime to string.
+        # Converting date to string will cause error when inserting to database.
+        statement = insert(self.model).values(new_data.model_dump())
+
+        if returning:
+            statement = statement.returning(self.model)
+
+            # If multiple items are provided use `scalars` else use `scalar`
+            if isinstance(new_data, RootModel):
+                result = await db.scalars(statement)
+            else:
+                result = await db.scalar(statement)
+
+            if commit:
+                await db.commit()
+
+            """
+            If result is `ScalarResult` then we need to call `all()` to get the list of items.
+            If result is not `ScalarResult` then we can return the result as it is.
+
+            NOTE: We can determine same thing via `isinstance(new_data, RootModel)`
+                  but mypy won't be aware of result type.
+            """
+            if isinstance(result, ScalarResult):
+                return result.all()
+            return result
+
+        # If returning is False
+        await db.execute(statement)
         if commit:
             await db.commit()
-
-            # TODO: Improve this to perform all await db.refresh in simultaneously
-            for item_db in items_db:
-                await db.refresh(item_db, **(refresh_kwargs or {}))
-        elif refresh_kwargs and self.logger:
-            self.logger.warning("refresh_kwargs is ignored because commit is False")
-
-        return items_db
+        return None
 
     async def get(
         self,
