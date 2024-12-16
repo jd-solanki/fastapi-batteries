@@ -52,10 +52,3 @@ class FileValidator:
             )
         # Reset the file cursor to the beginning after reading
         await file.seek(0)
-
-
-img_validator_upto_1mb = FileValidator(
-    max_size_bytes=size_utils.mb_to_bytes(1),
-    allowed_mime_types=["image/jpeg", "image/png", "image/svg+xml", "image/webp"],
-)
-pdf_validator_upto_5mb = FileValidator(max_size_bytes=size_utils.mb_to_bytes(5), allowed_mime_types=["application/pdf"])
