@@ -1,8 +1,9 @@
+# TODO: Move generic utils that are not related to fastapi batteries to a separate package "pytils-jd"
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-type Environment = Literal["development", "production", "testing"]
+type Environment = Literal["development", "staging", "production", "testing"]
 type TODO = Any
 
 # * You can also get same type via pydantic's JSONValue (https://docs.pydantic.dev/latest/api/types/#pydantic.types.JsonValue)
