@@ -36,3 +36,36 @@ Thanks to that you can have reusable pagination query parameters. This is minima
 === "Preview"
 
     ![fastapi_batteries__pagination_ss](../assets/images/examples/fastapi/dependencies/pagination_ss.png)
+
+## Using with other query params
+
+When you use Pydantic model schema along with other query params you'll get Pydantic model schema in request body which is wrong:
+
+=== "Example"
+
+    ```py hl_lines="12-13"
+    --8<-- "examples/fastapi/dependencies/fastapi_pydantic_model_n_query_param_issue__py313.py"
+    ```
+
+=== "Preview"
+
+    ![fastapi_pydantic_model_n_query_param_issue](../assets/images/examples/fastapi/dependencies/fastapi_pydantic_model_n_query_param_issue.png)
+
+This is limitation (or bug) from FastAPI. There's already [open issue](https://github.com/fastapi/fastapi/issues/12402) and [related discussions](https://github.com/fastapi/fastapi/issues/12402#issuecomment-2416720739) for this. However, we've nice workaround for [this](https://github.com/fastapi/fastapi/issues/12402#issuecomment-2520205504).
+
+We just have to replace `Query()` with `Depends()` and it'll work as expected:
+
+```diff
+- pagination: Annotated[PaginationPageSize, Query()],
++ pagination: Annotated[PaginationPageSize, Depends()],
+```
+
+=== "Example"
+
+    ```py hl_lines="12"
+    --8<-- "examples/fastapi/dependencies/fastapi_pydantic_model_n_query_param_issue_workaround__py313.py"
+    ```
+
+=== "Preview"
+
+    ![fastapi_batteries__](../assets/images/examples/fastapi/dependencies/fastapi_pydantic_model_n_query_param_issue_resolved.png)
