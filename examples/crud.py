@@ -63,6 +63,7 @@ class UserPatch(UserBasePartial): ...
 
 class UserRead(UserBase):
     id: PositiveInt
+    is_active: bool
 
 
 # --- FastAPI
@@ -115,6 +116,7 @@ async def get_users(
     first_name__contains: str = "",
 ):
     select_statement = select(User)
+
     if first_name:
         select_statement = select_statement.where(User.first_name == first_name)
     if first_name__contains:
@@ -124,6 +126,32 @@ async def get_users(
         db,
         pagination=pagination,
         select_statement=lambda _: select_statement,
+    )
+
+    return {
+        "data": db_users,
+        "meta": {"total": total},
+    }
+
+
+@app.get("/users/with-first-name-and-is-active")
+async def get_users_with_cols(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationOffsetLimit, Depends(PaginationOffsetLimit)],
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    select_statement = select(User.first_name)
+    if first_name:
+        select_statement = select_statement.where(User.first_name == first_name)
+    if first_name__contains:
+        select_statement = select_statement.where(User.first_name.contains(first_name__contains))
+
+    db_users, total = await user_crud.get_multi(
+        db,
+        pagination=pagination,
+        select_statement=lambda _: select_statement,
+        as_mappings=True,
     )
 
     return {
