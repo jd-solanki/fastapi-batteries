@@ -381,6 +381,20 @@ class CRUD[
         )
 
     """
+        - `as_mappings` is bool
+    """
+
+    @overload
+    async def get_one_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        suppress_multiple_result_exc: bool = False,
+        as_mappings: bool = False,
+    ) -> tuple[*T] | RowMapping | None: ...
+
+    """
         - `as_mappings` is False
     """
 
@@ -423,6 +437,82 @@ class CRUD[
         except MultipleResultsFound:
             if not suppress_multiple_result_exc:
                 raise
+
+    # SECTION: get_one_for_cols_or_404
+    """
+        - `as_mappings` is False
+    """
+
+    @overload
+    async def get_one_for_cols_or_404[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        msg_404: str | None = None,
+        msg_multiple_results_exc: str,
+        as_mappings: bool = False,
+    ) -> tuple[*T] | RowMapping: ...
+
+    """
+        - `as_mappings` is False
+    """
+
+    @overload
+    async def get_one_for_cols_or_404[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        msg_404: str | None = None,
+        msg_multiple_results_exc: str,
+        as_mappings: Literal[False] = False,
+    ) -> tuple[*T]: ...
+
+    """
+        - `as_mappings` is True
+    """
+
+    @overload
+    async def get_one_for_cols_or_404[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        msg_404: str | None = None,
+        msg_multiple_results_exc: str,
+        as_mappings: Literal[True],
+    ) -> RowMapping: ...
+
+    async def get_one_for_cols_or_404[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        msg_404: str | None = None,
+        msg_multiple_results_exc: str,
+        as_mappings: bool = False,
+    ) -> tuple[*T] | RowMapping:
+        try:
+            if result := await self.get_one_for_cols(
+                db,
+                select_statement=select_statement,
+                suppress_multiple_result_exc=False,
+                as_mappings=as_mappings,
+            ):
+                return result
+        except MultipleResultsFound as e:
+            raise APIException(
+                status=status.HTTP_400_BAD_REQUEST,
+                title=msg_multiple_results_exc,
+            ) from e
+
+        raise APIException(
+            status=status.HTTP_404_NOT_FOUND,
+            title=msg_404 or self.err_messages[404],
+        )
+
+    # !SECTION: get_one_for_cols_or_404
 
     # TODO: Can we fetch TypedDict from SchemaPatch? Using `dict[str, Any]` is not good.
     async def patch(

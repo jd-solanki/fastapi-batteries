@@ -213,10 +213,11 @@ async def get_user_with_cols(
     if first_name__contains:
         select_statement = select_statement.where(User.first_name.contains(first_name__contains))
 
-    return await user_crud.get_one_for_cols(
+    return await user_crud.get_one_for_cols_or_404(
         db,
         select_statement=select_statement,
         as_mappings=True,
+        msg_multiple_results_exc="Multiple users found",
     )
 
 
