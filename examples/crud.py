@@ -171,6 +171,43 @@ async def get_one_user(
         ) from e
 
 
+@app.get("/users/exist")
+async def user_exist(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: PositiveInt | None = None,
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    select_statement = select(User)
+    if user_id:
+        select_statement = select_statement.where(User.id == user_id)
+    if first_name:
+        select_statement = select_statement.where(User.first_name == first_name)
+    if first_name__contains:
+        select_statement = select_statement.where(User.first_name.contains(first_name__contains))
+
+    return await user_crud.exist(db, select_statement=lambda _: select_statement)
+
+
+@app.get("/users/exist_n")
+async def user_exist_n(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    n: int,
+    user_id: PositiveInt | None = None,
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    select_statement = select(User)
+    if user_id:
+        select_statement = select_statement.where(User.id == user_id)
+    if first_name:
+        select_statement = select_statement.where(User.first_name == first_name)
+    if first_name__contains:
+        select_statement = select_statement.where(User.first_name.contains(first_name__contains))
+
+    return await user_crud.exist_n(db, select_statement=lambda _: select_statement, n=n)
+
+
 @app.get("/users/{user_id}")
 async def get_user(user_id: PositiveInt, db: Annotated[AsyncSession, Depends(get_db)]):
     return await user_crud.get_or_404(db, user_id)
