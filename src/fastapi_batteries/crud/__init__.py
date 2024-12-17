@@ -215,7 +215,7 @@ class CRUD[
 
         # --- Return records
         if pagination:
-            total = await self.count(db, select_statement=_select_statement)
+            total = await self.count(db, select_statement=lambda _: _select_statement)
             return records, total
         return records
 
@@ -315,8 +315,12 @@ class CRUD[
 
         return result.rowcount
 
-    # TODO: Use callable for select_statement like other methods
-    async def count(self, db: AsyncSession, *, select_statement: Select[tuple[ModelType]] | None = None) -> int:
+    async def count(
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+    ) -> int:
         """Count the number of records for given select statement.
 
         TIP: If you just want to know if n records exist, use `exist_n` method.
@@ -330,7 +334,7 @@ class CRUD[
             Number of records
 
         """
-        count_select_from = select_statement.subquery() if select_statement is not None else self.model
+        count_select_from = select_statement(select(self.model)).subquery()
         count_statement = select(func.count()).select_from(count_select_from)
 
         result = await db.scalars(count_statement)

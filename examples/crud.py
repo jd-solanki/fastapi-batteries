@@ -144,7 +144,7 @@ async def get_users_count(
     if first_name__contains:
         select_statement = select_statement.where(User.first_name.contains(first_name__contains))
 
-    return await user_crud.count(db, select_statement=select_statement)
+    return await user_crud.count(db, select_statement=lambda _: select_statement)
 
 
 @app.get("/users/one")
