@@ -10,8 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 from fastapi_batteries.crud import CRUD
-from fastapi_batteries.fastapi.exceptions import get_api_exception_handler
-from fastapi_batteries.fastapi.exceptions.api_exception import APIException, get_api_exception_handler
+from fastapi_batteries.fastapi.exceptions import APIException, get_api_exception_handler
 from fastapi_batteries.fastapi.middlewares import QueryCountMiddleware
 from fastapi_batteries.pydantic.schemas import Paginated, PaginationOffsetLimit
 from fastapi_batteries.sa.mixins import MixinId
@@ -63,7 +62,6 @@ class UserPatch(UserBasePartial): ...
 
 class UserRead(UserBase):
     id: PositiveInt
-    is_active: bool
 
 
 # --- FastAPI
@@ -191,12 +189,35 @@ async def get_one_user(
         select_statement = select_statement.where(User.first_name.contains(first_name__contains))
 
     try:
-        return await user_crud.get_one_or_none(db, select_statement=lambda _: select_statement)
+        return await user_crud.get_one_or_404(
+            db,
+            select_statement=lambda _: select_statement,
+            msg_multiple_results_exc="Multiple users found",
+        )
     except MultipleResultsFound as e:
         raise APIException(
             title="Multiple results found",
             status=status.HTTP_400_BAD_REQUEST,
         ) from e
+
+
+@app.get("/users/one/with-first-name-and-is-active", response_model=UserRead)
+async def get_user_with_cols(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    select_statement = select(User.first_name, User.id)
+    if first_name:
+        select_statement = select_statement.where(User.first_name == first_name)
+    if first_name__contains:
+        select_statement = select_statement.where(User.first_name.contains(first_name__contains))
+
+    return await user_crud.get_one_for_cols(
+        db,
+        select_statement=select_statement,
+        as_mappings=True,
+    )
 
 
 @app.get("/users/exist")

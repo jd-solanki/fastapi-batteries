@@ -1,11 +1,11 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from logging import Logger
 from typing import Any, Literal, overload
 
 from fastapi import status
 from pydantic import BaseModel, RootModel
-from sqlalchemy import RowMapping, ScalarResult, Select, delete, exists, func, insert, select
+from sqlalchemy import MappingResult, Row, RowMapping, ScalarResult, Select, delete, exists, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -329,8 +329,7 @@ class CRUD[
             return records, total
         return records
 
-    # TODO: Instead of all columns, fetch specific columns
-    async def get_one_or_none(
+    async def get_one(
         self,
         db: AsyncSession,
         *,
@@ -355,6 +354,72 @@ class CRUD[
 
         try:
             return result.unique().one_or_none()
+        except MultipleResultsFound:
+            if not suppress_multiple_result_exc:
+                raise
+
+    async def get_one_or_404(
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+        msg_404: str | None = None,
+        msg_multiple_results_exc: str,
+    ) -> ModelType:
+        try:
+            if result := await self.get_one(db, select_statement=select_statement):
+                return result
+        except MultipleResultsFound as e:
+            raise APIException(
+                status=status.HTTP_400_BAD_REQUEST,
+                title=msg_multiple_results_exc,
+            ) from e
+
+        raise APIException(
+            status=status.HTTP_404_NOT_FOUND,
+            title=msg_404 or self.err_messages[404],
+        )
+
+    """
+        - `as_mappings` is False
+    """
+
+    @overload
+    async def get_one_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        suppress_multiple_result_exc: bool = False,
+        as_mappings: Literal[False] = False,
+    ) -> tuple[*T] | None: ...
+
+    """
+        - `as_mappings` is True
+    """
+
+    @overload
+    async def get_one_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        suppress_multiple_result_exc: bool = False,
+        as_mappings: Literal[True],
+    ) -> RowMapping | None: ...
+
+    async def get_one_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        select_statement: Select[tuple[*T]],
+        suppress_multiple_result_exc: bool = False,
+        as_mappings: bool = False,
+    ) -> tuple[*T] | RowMapping | None:
+        result = await db.execute(select_statement)
+
+        try:
+            return result.mappings().one_or_none() if as_mappings else result.tuples().one_or_none()
         except MultipleResultsFound:
             if not suppress_multiple_result_exc:
                 raise
