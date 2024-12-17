@@ -141,16 +141,16 @@ async def get_users_with_cols(
     first_name: str = "",
     first_name__contains: str = "",
 ):
-    select_statement = select(User.first_name)
+    select_statement = select(User.first_name, User.is_active)
     if first_name:
         select_statement = select_statement.where(User.first_name == first_name)
     if first_name__contains:
         select_statement = select_statement.where(User.first_name.contains(first_name__contains))
 
-    db_users, total = await user_crud.get_multi(
+    db_users, total = await user_crud.get_multi_for_cols(
         db,
         pagination=pagination,
-        select_statement=lambda _: select_statement,
+        select_statement=select_statement,
         as_mappings=True,
     )
 

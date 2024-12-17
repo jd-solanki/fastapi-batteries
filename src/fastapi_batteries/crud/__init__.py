@@ -15,8 +15,7 @@ from fastapi_batteries.fastapi.exceptions import APIException
 from fastapi_batteries.pydantic.schemas import PaginationOffsetLimit, PaginationPageSize
 from fastapi_batteries.utils.pagination import page_size_to_offset_limit
 
-# TODO: Don't wrap generic in `Sequence`
-type RecordsWithCount[T] = tuple[Sequence[T], int]
+type RecordsWithCount[T] = tuple[T, int]
 
 
 class CRUD[
@@ -171,106 +170,42 @@ class CRUD[
             title=msg_404 or self.err_messages[404],
         )
 
-    # TODO: (need help) When we use `select(User)` and also use `as_mapping=True` instead of `Sequence[User]` we get `Sequence[RowMapping]` which is wrong
-    # This is because overload with *T takes precedence over overload with `ModelType`
+    """
+        - `pagination` is None
+    """
 
-    # Overload for whole model
     @overload
-    async def get_multi[T, *Ts](
+    async def get_multi(
         self,
         db: AsyncSession,
         *,
         pagination: None = None,
-        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[T]]] = lambda s: s,
-        as_mappings: Literal[False] = False,
-    ) -> Sequence[T]: ...
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+    ) -> Sequence[ModelType]: ...
+
+    """
+        - `pagination` is not None
+    """
 
     @overload
-    async def get_multi[T, *Ts](
+    async def get_multi(
         self,
         db: AsyncSession,
         *,
         pagination: PaginationOffsetLimit | PaginationPageSize,
-        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[T]]] = lambda s: s,
-        as_mappings: Literal[False] = False,
-    ) -> RecordsWithCount[T]: ...
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+    ) -> RecordsWithCount[Sequence[ModelType]]: ...
 
-    # Overload for columns
-    @overload
-    async def get_multi[T, *Ts](
-        self,
-        db: AsyncSession,
-        *,
-        pagination: None = None,
-        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[T, *Ts]]] = lambda s: s,
-        as_mappings: Literal[False] = False,
-    ) -> Sequence[tuple[T, *Ts]]: ...
-
-    @overload
-    async def get_multi[T, *Ts](
-        self,
-        db: AsyncSession,
-        *,
-        pagination: PaginationPageSize | PaginationOffsetLimit,
-        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[T, *Ts]]] = lambda s: s,
-        as_mappings: Literal[False] = False,
-    ) -> RecordsWithCount[tuple[T, *Ts]]: ...
-
-    @overload
-    async def get_multi[T, *Ts](
-        self,
-        db: AsyncSession,
-        *,
-        pagination: None = None,
-        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[T, *Ts]]] = lambda s: s,
-        as_mappings: Literal[True],
-    ) -> Sequence[RowMapping]: ...
-
-    @overload
-    async def get_multi[T, *Ts](
-        self,
-        db: AsyncSession,
-        *,
-        pagination: PaginationPageSize | PaginationOffsetLimit,
-        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[T, *Ts]]] = lambda s: s,
-        as_mappings: Literal[True],
-    ) -> RecordsWithCount[RowMapping]: ...
-
-    # TODO: Separate by `get_multi` and `get_multi_for_cols`. `get_multi_for_cols` will have as_mappings param. `get_multi` will only accept whole model.
-    # TODO: Improve readability or simplify it
-    # TODO: Write better docstring
-    async def get_multi[T, *Ts](
+    async def get_multi(
         self,
         db: AsyncSession,
         *,
         pagination: PaginationPageSize | PaginationOffsetLimit | None = None,
-        select_statement: Callable[
-            [Select[tuple[ModelType]]],
-            Select[tuple[T]] | Select[tuple[T, *Ts]],
-        ] = lambda s: s,
-        as_mappings: bool = False,
-    ) -> (
-        Sequence[tuple[T, *Ts]]
-        | Sequence[T]
-        | RecordsWithCount[tuple[T, *Ts]]
-        | RecordsWithCount[T]
-        | Sequence[RowMapping]
-        | RecordsWithCount[RowMapping]
-    ):
-        """Get multiple items based on select statement.
-
-        TIP: When using specific columns and directly returning prefer using `as_mappings=True`.
-
-        Returns:
-            Records with total count if pagination is provided else just records
-
-        """
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+    ) -> Sequence[ModelType] | RecordsWithCount[Sequence[ModelType]]:
         # --- Initialize statements
         _select_statement = select_statement(select(self.model))
-        paginated_statement: Select[tuple[T, *Ts]] | Select[tuple[T]] | None = None
-
-        use_scalars = set(_select_statement.columns.keys()) == set(self.model.__mapper__.columns.keys())
-        print(f"use_scalars: {use_scalars}")
+        paginated_statement: Select[tuple[ModelType]] | None = None
 
         # --- Pagination
         if pagination:
@@ -282,18 +217,115 @@ class CRUD[
             paginated_statement = _select_statement.limit(limit).offset(offset)
 
         # --- Fetch records
-        db_method = db.scalars if use_scalars else db.execute
-        result = await db_method(
+        result = await db.scalars(
             paginated_statement if paginated_statement is not None else _select_statement,
         )
-        if isinstance(result, ScalarResult):
-            records = result.unique().all()
-        else:
-            records = result.unique().mappings().all() if as_mappings else result.unique().tuples().all()
+        records = result.unique().all()
 
         # --- Return records
         if pagination:
             total = await self.count(db, select_statement=lambda _: _select_statement)
+            return records, total
+        return records
+
+    """
+        - `pagination` is None
+        - `as_mappings` is False
+    """
+
+    @overload
+    async def get_multi_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        pagination: None = None,
+        select_statement: Select[tuple[*T]],
+        as_mappings: Literal[False] = False,
+    ) -> Sequence[tuple[*T]]: ...
+
+    """
+        - `pagination` is None
+        - `as_mappings` is True
+    """
+
+    @overload
+    async def get_multi_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        pagination: None = None,
+        select_statement: Select[tuple[*T]],
+        as_mappings: Literal[True],
+    ) -> Sequence[RowMapping]: ...
+
+    """
+        - `pagination` is not None
+        - `as_mappings` is False
+    """
+
+    @overload
+    async def get_multi_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        pagination: PaginationOffsetLimit | PaginationPageSize,
+        select_statement: Select[tuple[*T]],
+        as_mappings: Literal[False] = False,
+    ) -> RecordsWithCount[Sequence[tuple[*T]]]: ...
+
+    """
+        - `pagination` is not None
+        - `as_mappings` is True
+    """
+
+    @overload
+    async def get_multi_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        pagination: PaginationOffsetLimit | PaginationPageSize,
+        select_statement: Select[tuple[*T]],
+        as_mappings: Literal[True],
+    ) -> RecordsWithCount[Sequence[RowMapping]]: ...
+
+    # NOTE: We've this separate method to fetch specific columns instead of all columns
+    #       To avoid adding complexity in `get_multi` method.
+    #       Initially, I tried merging both but it ended up in chaos.
+    async def get_multi_for_cols[*T](
+        self,
+        db: AsyncSession,
+        *,
+        pagination: PaginationPageSize | PaginationOffsetLimit | None = None,
+        select_statement: Select[tuple[*T]],
+        as_mappings: bool = False,
+    ) -> Sequence[RowMapping] | Sequence[tuple[*T]] | RecordsWithCount[Sequence[RowMapping] | Sequence[tuple[*T]]]:
+        # Raise value error if select statement has all column of model
+        # to indicate that we should use `get_multi` method
+        if set(select_statement.columns.keys()) == set(self.model.__mapper__.columns.keys()):
+            msg = "Use `get_multi` method instead while fetching all columns"
+            raise ValueError(msg)
+
+        # --- Initialize statements
+        paginated_statement: Select[tuple[*T]] | None = None
+
+        # --- Pagination
+        if pagination:
+            if isinstance(pagination, PaginationPageSize):
+                offset, limit = page_size_to_offset_limit(page=pagination.page, size=pagination.size)
+            else:
+                offset, limit = pagination.offset, pagination.limit
+
+            paginated_statement = select_statement.limit(limit).offset(offset)
+
+        # --- Fetch records
+        result = await db.execute(
+            paginated_statement if paginated_statement is not None else select_statement,
+        )
+        records = result.unique().mappings().all() if as_mappings else result.unique().tuples().all()
+
+        # --- Return records
+        if pagination:
+            total = await self.count(db, select_statement=lambda _: select_statement)
             return records, total
         return records
 
