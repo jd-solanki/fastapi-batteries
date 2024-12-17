@@ -168,8 +168,25 @@ class CRUD[
             title=msg_404 or self.err_messages[404],
         )
 
+    @overload
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        *,
+        pagination: None = None,
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+    ) -> Sequence[ModelType]: ...
+
+    @overload
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        *,
+        pagination: PaginationPageSize | PaginationOffsetLimit,
+        select_statement: Callable[[Select[tuple[ModelType]]], Select[tuple[ModelType]]] = lambda s: s,
+    ) -> tuple[Sequence[ModelType], int]: ...
+
     # TODO: Instead of all columns, fetch specific columns
-    # TODO: Add overload for pagination conditional return
     async def get_multi(
         self,
         db: AsyncSession,
