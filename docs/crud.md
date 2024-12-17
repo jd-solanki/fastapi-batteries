@@ -4,4 +4,4 @@ FastAPI batteries comes with CRUD helper that uses async SQLAlchemy to perform C
 
 ## Usage
 
-1. Create resource crud from base CRUD class.
+🚧 _TBD. Implementation is almost completed so you can check source code [here](https://github.com/jd-solanki/fastapi-batteries/blob/main/src/fastapi_batteries/crud/__init__.py) and example [here](https://github.com/jd-solanki/fastapi-batteries/blob/main/examples/crud.py)_
