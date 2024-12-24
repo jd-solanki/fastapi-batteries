@@ -14,9 +14,9 @@ from fastapi_batteries.utils.size import (
     ("bytes_value", "expected_kb"),
     [
         (0, 0.0),
-        (1024, 1.0),
-        (2048, 2.0),
-        (512, 0.5),
+        (1000, 1.0),
+        (2000, 2.0),
+        (500, 0.5),
     ],
 )
 def test_bytes_to_kb(bytes_value: int, expected_kb: float) -> None:
@@ -28,9 +28,9 @@ def test_bytes_to_kb(bytes_value: int, expected_kb: float) -> None:
     ("bytes_value", "expected_mb"),
     [
         (0, 0.0),
-        (1_048_576, 1.0),  # 1 MB = 1024 * 1024 bytes
-        (2_097_152, 2.0),  # 2 MB
-        (524_288, 0.5),  # 0.5 MB
+        (1_000_000, 1.0),  # 1 MB = 1000 * 1000 bytes
+        (2_000_000, 2.0),  # 2 MB
+        (500_000, 0.5),  # 0.5 MB
     ],
 )
 def test_bytes_to_mb(bytes_value: int, expected_mb: float) -> None:
@@ -42,9 +42,9 @@ def test_bytes_to_mb(bytes_value: int, expected_mb: float) -> None:
     ("kb_value", "expected_bytes"),
     [
         (0, 0),
-        (1, 1024),
-        (2, 2048),
-        (0.5, 512),
+        (1, 1000),
+        (2, 2000),
+        (0.5, 500),
     ],
 )
 def test_kb_to_bytes(kb_value: float, expected_bytes: int) -> None:
@@ -56,9 +56,9 @@ def test_kb_to_bytes(kb_value: float, expected_bytes: int) -> None:
     ("kb_value", "expected_mb"),
     [
         (0, 0),
-        (1024, 1),
-        (2048, 2),
-        (512, 0),  # Tests integer division behavior
+        (1000, 1),
+        (2000, 2),
+        (500, 0),  # Tests integer division behavior
     ],
 )
 def test_kb_to_mb(kb_value: float, expected_mb: int) -> None:
@@ -70,9 +70,9 @@ def test_kb_to_mb(kb_value: float, expected_mb: int) -> None:
     ("mb_value", "expected_bytes"),
     [
         (0, 0),
-        (1, 1_048_576),
-        (2, 2_097_152),
-        (0.5, 524_288),
+        (1, 1_000_000),
+        (2, 2_000_000),
+        (0.5, 500_000),
     ],
 )
 def test_mb_to_bytes(mb_value: float, expected_bytes: int) -> None:
@@ -84,9 +84,9 @@ def test_mb_to_bytes(mb_value: float, expected_bytes: int) -> None:
     ("mb_value", "expected_kb"),
     [
         (0, 0),
-        (1, 1024),
-        (2, 2048),
-        (0.5, 512),
+        (1, 1000),
+        (2, 2000),
+        (0.5, 500),
     ],
 )
 def test_mb_to_kb(mb_value: float, expected_kb: int) -> None:
