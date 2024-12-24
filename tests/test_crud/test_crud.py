@@ -7,11 +7,14 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import String
 from sqlalchemy.exc import PendingRollbackError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
-from fastapi_batteries.crud import CRUD, Base
+from fastapi_batteries.crud import CRUD
 from fastapi_batteries.pydantic.schemas import PaginationOffsetLimit
 from fastapi_batteries.sa.mixins import MixinId
+
+
+class Base(DeclarativeBase): ...
 
 
 # Test Models
@@ -93,6 +96,9 @@ async def test_create_user(
     assert user.name == "New User"
     assert user.id is not None
 
+    # TODO: Should we remove this user?
+    await user_crud.delete(db, user.id)
+
 
 @pytest.mark.asyncio
 async def test_get_user(
@@ -134,13 +140,15 @@ async def test_get_multi(
 ) -> None:
     # Create multiple users
     users_data = [UserCreate(email=f"user{i}@example.com", name=f"User {i}") for i in range(5)]
+    print(f"users_data: {users_data}", len(users_data))
     for user_data in users_data:
         await user_crud.create(db, user_data)
 
     pagination = PaginationOffsetLimit(offset=0, limit=3)
-    users = await user_crud.get_multi(db, pagination=pagination)
+    users, total = await user_crud.get_multi(db, pagination=pagination)
 
     assert len(users) == 3
+    assert total == 5
 
 
 @pytest.mark.asyncio
