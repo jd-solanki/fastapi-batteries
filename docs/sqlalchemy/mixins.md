@@ -34,13 +34,26 @@ You can view source code of all mixins [here](https://github.com/jd-solanki/fast
 
 Sometime, You might want renamed column for example when using `MixinUpdatedAt` you'll get `updated_at` column but you want column name as `last_modified_at` or `started_at` to make it more meaningful according to your model. For this, `MixinFactory` allows you to generate renamed column from existing mixins.
 
-```py
-from fastapi_batteries.sa.mixins import MixinFactory, MixinId
+```py hl_lines="3 5"
+from fastapi_batteries.sa.mixins import MixinFactory, MixinId, MixinCreatedAt
 
-MixinStartedAt = MixinFactory.get_renamed("created_at", "started_at")
+MixinStartedAt = MixinFactory.get_renamed(MixinCreatedAt, "started_at")
 
 class Workflow(Base, MixinId, MixinStartedAt):
     __tablename__ = "workflow"
 
     title: Mapped[str]
+```
+
+As this is just utility you can also use it on your own mixins.
+
+```py hl_lines="6"
+from fastapi_batteries.sa.mixins import MixinFactory
+
+class YourMixin(Base):
+    your_col_name: Mapped[str]
+
+RenamedMixin = MixinFactory.get_renamed(YourMixin, "new_col_name")
+
+class Workflow(Base, RenamedMixin): ...
 ```
