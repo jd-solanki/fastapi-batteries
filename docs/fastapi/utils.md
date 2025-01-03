@@ -67,3 +67,27 @@ use_route_path_as_operation_ids(app)
 !!! warning
 
     Ensure, You always use this util after defining or including all of your operations (This is also [stated](https://fastapi.tiangolo.com/advanced/path-operation-advanced-configuration/#openapi-operationid) in official FastAPI docs).
+
+Additionally, `use_route_path_as_operation_ids` also allows you to enforce the function name to be same as generated operation ID via `warn_on_func_name_mismatch` parameter. This is useful when you want to ensure that your operation ID is same as function name.
+
+```py hl_lines="13"
+from fastapi import FastAPI
+
+from fastapi_batteries.fastapi.utils import use_route_path_as_operation_ids
+
+app = FastAPI()
+
+
+@app.get("/")
+async def get_index():
+    return {"message": "Hello World"}
+
+
+use_route_path_as_operation_ids(app, warn_on_func_name_mismatch=True)
+```
+
+For the given example, Running the app will raise a warning:
+
+```
+UserWarning: Route "/" has the function name "get_index" which does not match expected operation ID: "get"
+```
