@@ -1,11 +1,22 @@
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence, Set
 from contextlib import suppress
 from logging import Logger
 from typing import Any, Literal, overload
 
 from fastapi import status
 from pydantic import BaseModel, RootModel
-from sqlalchemy import MappingResult, Row, RowMapping, ScalarResult, Select, delete, exists, func, insert, select
+from sqlalchemy import (
+    ColumnElement,
+    RowMapping,
+    ScalarResult,
+    Select,
+    delete,
+    exists,
+    func,
+    insert,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,6 +102,7 @@ class CRUD[
         returning: Literal[False],
     ) -> None: ...
 
+    # TOOD: Only use db as position arg and rest of param should be keyword only
     async def create(
         self,
         db: AsyncSession,
@@ -514,28 +526,171 @@ class CRUD[
 
     # !SECTION: get_one_for_cols_or_404
 
+    """
+        - `returning` is True
+        - `commit` is True
+    """
+
+    @overload
+    async def patch(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        item_id: int,
+        returning: Literal[True] = True,
+        commit: Literal[True] = True,
+    ) -> ModelType: ...
+
+    """
+        - `returning` is False
+        - `commit` is True
+    """
+
+    @overload
+    async def patch(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        item_id: int,
+        returning: Literal[False],
+        commit: Literal[True] = True,
+    ) -> None: ...
+
+    """
+        - `returning` is False
+        - `commit` is False
+    """
+
+    @overload
+    async def patch(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        item_id: int,
+        returning: Literal[False],
+        commit: Literal[False],
+    ) -> None: ...
+
+    # TODO: Add support for returning `rowcount` in both `patch` and `patch_where` methods
     # TODO: Can we fetch TypedDict from SchemaPatch? Using `dict[str, Any]` is not good.
     async def patch(
         self,
         db: AsyncSession,
-        item_db: ModelType,
-        patched_item: SchemaPatch | dict[str, Any],
         *,
+        patched_item: SchemaPatch | dict[str, Any],
+        item_id: int,
+        returning: bool = True,
         commit: bool = True,
-    ) -> ModelType:
-        # Get the patched data based on received item
-        patched_data = patched_item if isinstance(patched_item, dict) else patched_item.model_dump(exclude_unset=True)
+    ) -> ModelType | None:
+        if not hasattr(self.model, "id"):
+            msg = f"Model {self.model.__name__} must have 'id' attribute"
+            raise AttributeError(msg)
 
-        for field_to_patch, field_val in patched_data.items():
-            setattr(item_db, field_to_patch, field_val)
+        patch_where_return_val = await self.patch_where(
+            db,
+            patched_item=patched_item,
+            where={self.model.id == item_id},  # type: ignore We already checked if model has `id` attribute
+            returning=returning,
+            commit=commit,
+        )
 
-        db.add(item_db)
+        return patch_where_return_val[0] if patch_where_return_val else None
 
+    """
+        - `returning` is True
+        - `commit` is True
+    """
+
+    @overload
+    async def patch_where(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        where: Set[ColumnElement[bool]],
+        returning: Literal[True] = True,
+        commit: Literal[True] = True,
+    ) -> Sequence[ModelType]: ...
+
+    """
+        - `returning` is False
+        - `commit` is True
+    """
+
+    @overload
+    async def patch_where(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        where: Set[ColumnElement[bool]],
+        returning: Literal[False],
+        commit: Literal[True] = True,
+    ) -> None: ...
+
+    """
+        - `returning` is False
+        - `commit` is False
+    """
+
+    @overload
+    async def patch_where(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        where: Set[ColumnElement[bool]],
+        returning: Literal[False],
+        commit: Literal[False],
+    ) -> None: ...
+
+    """
+        - `returning` is bool
+        - `commit` is bool
+    """
+
+    @overload
+    async def patch_where(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        where: Set[ColumnElement[bool]],
+        returning: bool = True,
+        commit: bool = True,
+    ) -> Sequence[ModelType] | None: ...
+
+    async def patch_where(
+        self,
+        db: AsyncSession,
+        *,
+        patched_item: SchemaPatch | dict[str, Any],
+        where: Set[ColumnElement[bool]],
+        returning: bool = True,
+        commit: bool = True,
+    ) -> Sequence[ModelType] | None:
+        data_to_update = patched_item.model_dump() if isinstance(patched_item, BaseModel) else patched_item
+
+        statement = update(self.model).where(*where).values(data_to_update)
+
+        if returning:
+            statement = statement.returning(self.model)
+
+            result = await db.execute(statement)
+
+            if commit:
+                await db.commit()
+
+            return result.scalars().all()
+
+        # If returning is False
+        await db.execute(statement)
         if commit:
             await db.commit()
-            await db.refresh(item_db)
-
-        return item_db
+        return None
 
     async def soft_delete(self, db: AsyncSession, item_id: int, *, commit: bool = True) -> ModelType:
         item_db = await self.get_or_404(db, item_id)
@@ -550,6 +705,7 @@ class CRUD[
 
         return item_db
 
+    # TODO: Implement delete where method
     async def delete(self, db: AsyncSession, item_id: int, *, commit: bool = True) -> int:
         """Delete an item by ID. Returns the number of rows deleted.
 

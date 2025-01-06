@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, status
 from pydantic import BaseModel, PositiveInt, RootModel
-from sqlalchemy import String, select
+from sqlalchemy import ColumnElement, String, select
 from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
@@ -263,6 +263,23 @@ async def get_user(user_id: PositiveInt, db: Annotated[AsyncSession, Depends(get
     return await user_crud.get_or_404(db, user_id)
 
 
-# @app.patch("/users/{user_id}")
-# async def patch_user(user_id: PositiveInt, user: UserPatch, db: Annotated[AsyncSession, Depends(get_db)]):
-#     return await user_crud.patch(db, user_id, user)
+@app.patch("/users/{user_id}")
+async def patch_user(user_id: PositiveInt, user: UserPatch, db: Annotated[AsyncSession, Depends(get_db)]):
+    return await user_crud.patch(db, item_id=user_id, patched_item=user)
+
+
+@app.patch("/users/")
+async def patch_users_with_first_name(
+    user: UserPatch,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    first_name: str = "",
+    first_name__contains: str = "",
+):
+    where: set[ColumnElement[bool]] = set()
+
+    if first_name:
+        where.add(User.first_name == first_name)
+    if first_name__contains:
+        where.add(User.first_name.contains(first_name__contains))
+
+    return await user_crud.patch_where(db, where=where, patched_item=user)
